@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Virtual Try-On (2D)</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+    canvas {
+      border: 1px solid #ccc;
+      margin-top: 10px;
+      touch-action: none;
+    }
+    #controls {
+      margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>Virtual Try-On (2D)</h1>
+
+  <div id="controls">
+    <input type="file" id="userImageInput" accept="image/*" capture="environment">
+    <br><br>
+    <button onclick="loadClothing('shirt')">Try Shirt</button>
+    <button onclick="loadClothing('dress')">Try Dress</button>
+  </div>
+
+  <canvas id="tryonCanvas" width="400" height="500"></canvas>
+
+  <script>
+    const canvas = document.getElementById('tryonCanvas');
+    const ctx = canvas.getContext('2d');
+
+    let userImage = new Image();
+    let clothingImage = new Image();
+
+    let clothing = {
+      x: 100,
+      y: 100,
+      width: 200,
+      height: 200,
+      dragging: false,
+      resizing: false
+    };
+
+    document.getElementById('userImageInput').addEventListener('change', function(event) {
+      const file = event.target.files[0];
+      const reader = new FileReader();
+
+      reader.onload = function(e) {
+        userImage.onload = () => drawImages();
+        userImage.src = e.target.result;
+      }
+
+      if (file) reader.readAsDataURL(file);
+    });
+
+    function loadClothing(type) {
+      clothingImage = new Image();
+      clothingImage.onload = () => drawImages();
+      clothingImage.src = type === 'shirt' ? 'shirt.png' : 'dress.png';
+    }
+
+    function drawImages() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (userImage.src) ctx.drawImage(userImage, 0, 0, canvas.width, canvas.height);
+      if (clothingImage.src) ctx.drawImage(clothingImage, clothing.x, clothing.y, clothing.width, clothing.height);
+    }
+
+    function isInside(x, y, obj) {
+      return x >= obj.x && x <= obj.x + obj.width && y >= obj.y && y <= obj.y + obj.height;
+    }
+
+    function isInCorner(x, y, obj) {
+      const cornerSize = 20;
+      return (
+        x >= obj.x + obj.width - cornerSize && x <= obj.x + obj.width &&
+        y >= obj.y + obj.height - cornerSize && y <= obj.y + obj.height
+      );
+    }
+
+    function getCanvasCoords(e) {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.touches ? e.touches[0].clientX : e.clientX;
+      const y = e.touches ? e.touches[0].clientY : e.clientY;
+      return {
+        x: x - rect.left,
+        y: y - rect.top
+      };
+    }
+
+    let offsetX, offsetY;
+
+    function startInteraction(e) {
+      e.preventDefault();
+      const { x, y } = getCanvasCoords(e);
+
+      if (isInCorner(x, y, clothing)) {
+        clothing.resizing = true;
+      } else if (isInside(x, y, clothing)) {
+        clothing.dragging = true;
+        offsetX = x - clothing.x;
+        offsetY = y - clothing.y;
+      }
+    }
+
+    function moveInteraction(e) {
+      if (!(clothing.dragging || clothing.resizing)) return;
+      e.preventDefault();
+      const { x, y } = getCanvasCoords(e);
+
+      if (clothing.dragging) {
+        clothing.x = x - offsetX;
+        clothing.y = y - offsetY;
+      } else if (clothing.resizing) {
+        clothing.width = x - clothing.x;
+        clothing.height = y - clothing.y;
+      }
+
+      drawImages();
+    }
+
+    function endInteraction() {
+      clothing.dragging = false;
+      clothing.resizing = false;
+    }
+
+    canvas.addEventListener('mousedown', startInteraction);
+    canvas.addEventListener('mousemove', moveInteraction);
+    canvas.addEventListener('mouseup', endInteraction);
+
+    canvas.addEventListener('touchstart', startInteraction);
+    canvas.addEventListener('touchmove', moveInteraction);
+    canvas.addEventListener('touchend', endInteraction);
+  </script>
+</body>
+</html>
